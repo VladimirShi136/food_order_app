@@ -45,4 +45,18 @@ final ThemeData appTheme = ThemeData(
     backgroundColor: AppColors.background,
     elevation: 0,
   ),
+  snackBarTheme: SnackBarThemeData(
+    backgroundColor: AppColors.surface,
+    contentTextStyle: GoogleFonts.inter(
+      color: AppColors.textPrimary,
+      fontWeight: FontWeight.w500,
+    ),
+    actionTextColor: AppColors.primary,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: const BorderSide(color: AppColors.primary, width: 1),
+    ),
+    insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  ),
 );
