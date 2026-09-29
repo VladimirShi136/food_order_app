@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../theme/app_theme.dart';
 import '../models/cart_model.dart';
+import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -11,20 +12,22 @@ class CartScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = context.watch<CartModel>();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Корзина')),
-      body: cart.items.isEmpty
-          ? const Center(
-              child: Text(
-                'Корзина пуста',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
+        return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Корзина', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Expanded(
+            child: cart.items.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Корзина пуста',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  )
+                : ListView.builder(
                     itemCount: cart.items.length,
                     itemBuilder: (context, index) {
                       final item = cart.items[index];
@@ -85,28 +88,25 @@ class CartScreen extends StatelessWidget {
                       );
                     },
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: подключить оформление заказа на Этапе 4
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Оформление заказа появится позже'),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Оформить заказ · ${cart.totalPrice.toStringAsFixed(0)} ₽',
-                      ),
-                    ),
+          ),
+          if (cart.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+                  ),
+                  child: Text(
+                    'Оформить заказ · ${cart.totalPrice.toStringAsFixed(0)} ₽',
                   ),
                 ),
-              ],
+              ),
             ),
+        ],
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/dish.dart';
 import '../models/cart_model.dart';
+import '../widgets/toast_stack.dart';
 
 class DishDetailScreen extends StatefulWidget {
   final Dish dish;
@@ -84,9 +85,7 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                 onPressed: () {
                   context.read<CartModel>().addDish(dish, quantity: quantity);
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${dish.name} добавлен в корзину')),
-                  );
+                  toastController.show('${dish.name} добавлен в корзину');
                 },
                 child: Text(
                   'Добавить в корзину · ${(dish.price * quantity).toStringAsFixed(0)} ₽',
