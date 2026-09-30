@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-import 'package:google_fonts/google_fonts.dart';
 
 class ToastData {
   final String id;
@@ -128,7 +127,8 @@ class _ToastItemState extends State<_ToastItem> {
             ),
             child: Text(
               widget.toast.message,
-              style: GoogleFonts.inter(
+              style: const TextStyle(
+                fontFamily: 'Inter',
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w500,
                 fontSize: 14,

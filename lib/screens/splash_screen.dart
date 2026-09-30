@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'main_navigation_screen.dart';
 
@@ -58,7 +57,8 @@ class _SplashScreenState extends State<SplashScreen>
           },
           child: Text(
             'Gari Grill',
-            style: GoogleFonts.montserrat(
+            style: const TextStyle(
+              fontFamily: 'Montserrat',
               color: Colors.white,
               fontSize: 36,
               fontWeight: FontWeight.w800,

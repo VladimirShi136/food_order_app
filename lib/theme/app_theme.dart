@@ -1,6 +1,4 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   static const background = Color(0xFF141414);
@@ -11,48 +9,52 @@ class AppColors {
   static const textSecondary = Color(0xFFB0B0B0);
 }
 
-final TextTheme _baseTextTheme = GoogleFonts.interTextTheme(
-  ThemeData.dark().textTheme,
-).apply(bodyColor: AppColors.textPrimary, displayColor: AppColors.textPrimary);
+TextStyle _montserrat({
+  required FontWeight weight,
+  double? fontSize,
+  Color? color,
+  double? letterSpacing,
+}) {
+  return TextStyle(
+    fontFamily: 'Montserrat',
+    fontWeight: weight,
+    fontSize: fontSize,
+    color: color ?? AppColors.textPrimary,
+    letterSpacing: letterSpacing,
+  );
+}
 
-final TextTheme appTextTheme = _baseTextTheme.copyWith(
-  displayLarge: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.displayLarge,
-    fontWeight: FontWeight.w800,
-  ),
-  displayMedium: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.displayMedium,
-    fontWeight: FontWeight.w800,
-  ),
-  displaySmall: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.displaySmall,
-    fontWeight: FontWeight.w700,
-  ),
-  headlineLarge: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.headlineLarge,
-    fontWeight: FontWeight.w800,
-  ),
-  headlineMedium: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.headlineMedium,
-    fontWeight: FontWeight.w800,
+TextStyle _inter({
+  FontWeight weight = FontWeight.w400,
+  double? fontSize,
+  Color? color,
+}) {
+  return TextStyle(
+    fontFamily: 'Inter',
+    fontWeight: weight,
+    fontSize: fontSize,
+    color: color ?? AppColors.textPrimary,
+  );
+}
+
+final TextTheme appTextTheme = TextTheme(
+  displayLarge: _montserrat(weight: FontWeight.w800, fontSize: 57),
+  displayMedium: _montserrat(weight: FontWeight.w800, fontSize: 45),
+  displaySmall: _montserrat(weight: FontWeight.w700, fontSize: 36),
+  headlineLarge: _montserrat(weight: FontWeight.w800, fontSize: 32),
+  headlineMedium: _montserrat(
+    weight: FontWeight.w800,
+    fontSize: 24,
     letterSpacing: 0.5,
   ),
-  headlineSmall: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.headlineSmall,
-    fontWeight: FontWeight.w700,
-  ),
-  titleLarge: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.titleLarge,
-    fontWeight: FontWeight.w700,
-  ),
-  titleMedium: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.titleMedium,
-    fontWeight: FontWeight.w700,
-  ),
-  titleSmall: GoogleFonts.montserrat(
-    textStyle: _baseTextTheme.titleSmall,
-    fontWeight: FontWeight.w600,
-  ),
+  headlineSmall: _montserrat(weight: FontWeight.w700, fontSize: 22),
+  titleLarge: _montserrat(weight: FontWeight.w700, fontSize: 20),
+  titleMedium: _montserrat(weight: FontWeight.w700, fontSize: 16),
+  titleSmall: _montserrat(weight: FontWeight.w600, fontSize: 14),
+  bodyLarge: _inter(fontSize: 16),
+  bodyMedium: _inter(fontSize: 14, color: AppColors.textSecondary),
+  bodySmall: _inter(fontSize: 12, color: AppColors.textSecondary),
+  labelLarge: _inter(weight: FontWeight.w600, fontSize: 14),
 );
 
 final ThemeData appTheme = ThemeData(
@@ -67,7 +69,7 @@ final ThemeData appTheme = ThemeData(
     style: ElevatedButton.styleFrom(
       backgroundColor: AppColors.primary,
       foregroundColor: AppColors.background,
-      textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      textStyle: _inter(weight: FontWeight.w600),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
     ),
@@ -77,29 +79,15 @@ final ThemeData appTheme = ThemeData(
     surfaceTintColor: Colors.transparent,
     scrolledUnderElevation: 0,
     elevation: 0,
-    titleTextStyle: GoogleFonts.montserrat(
-      color: AppColors.textPrimary,
-      fontWeight: FontWeight.w800,
+    titleTextStyle: _montserrat(
+      weight: FontWeight.w800,
       fontSize: 20,
       letterSpacing: 0.5,
     ),
   ),
-  bottomNavigationBarTheme: BottomNavigationBarThemeData(
-    selectedLabelStyle: GoogleFonts.inter(
-      fontWeight: FontWeight.w600,
-      fontSize: 12,
-    ),
-    unselectedLabelStyle: GoogleFonts.inter(
-      fontWeight: FontWeight.w500,
-      fontSize: 12,
-    ),
-  ),
   snackBarTheme: SnackBarThemeData(
     backgroundColor: AppColors.surface,
-    contentTextStyle: GoogleFonts.inter(
-      color: AppColors.textPrimary,
-      fontWeight: FontWeight.w500,
-    ),
+    contentTextStyle: _inter(weight: FontWeight.w500),
     actionTextColor: AppColors.primary,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
@@ -109,8 +97,44 @@ final ThemeData appTheme = ThemeData(
   ),
   pageTransitionsTheme: const PageTransitionsTheme(
     builders: {
-      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.android: _NoFlashSlideTransitionsBuilder(),
+      TargetPlatform.iOS: _NoFlashSlideTransitionsBuilder(),
     },
   ),
 );
+
+class _NoFlashSlideTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoFlashSlideTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final incomingCurve = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+    );
+    final outgoingCurve = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: Curves.easeInCubic,
+    );
+
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: Offset.zero,
+        end: const Offset(-1, 0),
+      ).animate(outgoingCurve),
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(incomingCurve),
+        child: child,
+      ),
+    );
+  }
+}
