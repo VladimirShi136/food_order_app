@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Pocketbase related
+backend/pocketbase.exe
+backend/pb_data/

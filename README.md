@@ -1,17 +1,42 @@
-# food_order_app
+# Gari Grill — приложение для заказа еды
 
-A new Flutter project.
+Мобильное приложение для заказа еды (гриль/фастфуд) с самовывозом. В планах — доставка.
 
-## Getting Started
+## Стек
+- **Flutter** (Android, затем iOS), state management — `provider`
+- **PocketBase** (self-hosted) — backend: БД, авторизация, файлы, realtime. Сервер размещается в РФ (152-ФЗ)
 
-This project is a starting point for a Flutter application.
+## Статус
+- ✅ UI-каркас: главная, каталог, карточка блюда, корзина, оформление заказа, экран успеха
+- ✅ Брендинг: тёмная тема, золотисто-жёлтый акцент, шрифты Montserrat + Inter (локально)
+- ⏳ Backend: подключение PocketBase (сначала локально, затем сервер)
+- ⏳ Авторизация, история и статусы заказов, оплата, админ-панель
 
-A few resources to get you started if this is your first Flutter project:
+Подробный план — в [ROADMAP.md](ROADMAP.md).
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+> Сейчас экраны работают на тестовых данных (`sampleDishes`), заказы нигде не сохраняются.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Запуск приложения
+```bash
+flutter pub get
+flutter run
+```
+
+## Локальный backend (PocketBase)
+1. Скачать PocketBase с [pocketbase.io](https://pocketbase.io/docs/) для своей ОС
+2. Запустить: `./pocketbase serve` (для доступа с телефона: `./pocketbase serve --http=0.0.0.0:8090`)
+3. Админка: http://127.0.0.1:8090/_/
+
+Адрес сервера в приложении: эмулятор Android — `http://10.0.2.2:8090`, реальный телефон — `http://<IP компьютера>:8090`.
+
+Бинарник `pocketbase` и папка `pb_data/` в git не попадают; миграции схемы (`pb_migrations/`) коммитятся.
+
+## Структура
+```
+lib/
+  main.dart
+  theme/       — тема приложения
+  models/      — модели (блюдо, корзина)
+  screens/     — экраны
+  widgets/     — общие виджеты (тосты, фон)
+```
