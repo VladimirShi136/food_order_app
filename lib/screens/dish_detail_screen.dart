@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../theme/app_theme.dart';
-import '../models/dish.dart';
 import '../models/cart_model.dart';
+import '../models/dish.dart';
+import '../theme/app_theme.dart';
 import '../widgets/toast_stack.dart';
+import 'catalog_screen.dart' show DishImage;
 
 class DishDetailScreen extends StatefulWidget {
   final Dish dish;
@@ -29,19 +30,7 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              height: 220,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.fastfood,
-                size: 64,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            DishImage(url: dish.imageUrl, height: 220, radius: 16),
             const SizedBox(height: 20),
             Text(dish.name, style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
@@ -53,6 +42,13 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            if (dish.description.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                dish.description,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
             const SizedBox(height: 24),
             Row(
               children: [

@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:food_order_app/screens/splash_screen.dart';
 import 'package:provider/provider.dart';
 
-import 'theme/app_theme.dart';
+import 'models/auth_model.dart';
 import 'models/cart_model.dart';
-import 'widgets/toast_stack.dart';
+import 'services/pocketbase_service.dart';
+import 'theme/app_theme.dart';
 import 'widgets/app_background.dart';
+import 'widgets/toast_stack.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initPocketBase();
   runApp(const MyApp());
 }
 
@@ -27,8 +31,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => CartModel(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CartModel()),
+        ChangeNotifierProvider(create: (_) => AuthModel()),
+      ],
       child: MaterialApp(
         title: 'Gari Grill',
         theme: appTheme,

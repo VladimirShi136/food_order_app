@@ -1,55 +1,42 @@
+import 'package:pocketbase/pocketbase.dart';
+
+import '../config.dart';
+
 class Dish {
   final String id;
   final String name;
-  final String category;
+  final String description;
+  final String category; // название категории
   final double price;
-  final String imageUrl;
+  final String imageUrl; // пустая строка, если фото нет
 
   const Dish({
     required this.id,
     required this.name,
     required this.category,
     required this.price,
-    required this.imageUrl,
+    this.description = '',
+    this.imageUrl = '',
   });
+
+  factory Dish.fromRecord(RecordModel r) {
+    final categories = r.expand['category'];
+    final categoryName = (categories != null && categories.isNotEmpty)
+        ? categories.first.getStringValue('name')
+        : '';
+
+    final fileName = r.getStringValue('image');
+    final imageUrl = fileName.isEmpty
+        ? ''
+        : '${AppConfig.pocketBaseUrl}/api/files/${r.collectionId}/${r.id}/$fileName';
+
+    return Dish(
+      id: r.id,
+      name: r.getStringValue('name'),
+      description: r.getStringValue('description'),
+      category: categoryName,
+      price: r.getDoubleValue('price'),
+      imageUrl: imageUrl,
+    );
+  }
 }
-
-final List<String> categories = [
-  'Все',
-  'Шаурма',
-  'Бургеры',
-  'Картофель',
-  'Комбо',
-];
-
-final List<Dish> sampleDishes = [
-  Dish(
-    id: '1',
-    name: 'Шаурма с курицей',
-    category: 'Шаурма',
-    price: 220,
-    imageUrl: '',
-  ),
-  Dish(
-    id: '2',
-    name: 'Шаурма острая',
-    category: 'Шаурма',
-    price: 240,
-    imageUrl: '',
-  ),
-  Dish(
-    id: '3',
-    name: 'Классический бургер',
-    category: 'Бургеры',
-    price: 280,
-    imageUrl: '',
-  ),
-  Dish(
-    id: '4',
-    name: 'Картофель фри',
-    category: 'Картофель',
-    price: 150,
-    imageUrl: '',
-  ),
-  Dish(id: '5', name: 'Комбо №1', category: 'Комбо', price: 450, imageUrl: ''),
-];

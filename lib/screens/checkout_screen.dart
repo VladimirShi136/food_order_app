@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../theme/app_theme.dart';
+import '../models/auth_model.dart';
 import '../models/cart_model.dart';
+import '../services/order_repository.dart';
+import '../theme/app_theme.dart';
+import '../widgets/toast_stack.dart';
+import 'login_screen.dart';
 import 'order_success_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -20,6 +24,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   ];
   String selectedTime = 'Как можно скорее (~20 мин)';
   final commentController = TextEditingController();
+  final _repository = OrderRepository();
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -27,7 +33,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
-    @override
+  Future<void> _confirm() async {
+    final cart = context.read<CartModel>();
+    final auth = context.read<AuthModel>();
+    if (cart.items.isEmpty || _submitting) return;
+
+    // Заказ может оформить только вошедший пользователь
+    if (!auth.isLoggedIn) {
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      if (!mounted || !auth.isLoggedIn) return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      final order = await _repository.create(
+        items: List.of(cart.items),
+        pickupTime: selectedTime,
+        comment: commentController.text.trim(),
+      );
+      cart.clear();
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => OrderSuccessScreen(
+            orderNumber: order.displayNumber,
+            pickupTime: selectedTime,
+          ),
+        ),
+      );
+    } catch (e) {
+      toastController.show(orderErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartModel>();
 
@@ -60,6 +102,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         activeColor: AppColors.primary,
                         contentPadding: EdgeInsets.zero,
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Оплата',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'При получении',
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -123,20 +175,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        final orderNumber = (1000 + DateTime.now().millisecond)
-                            .toString();
-                        cart.clear();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => OrderSuccessScreen(
-                              orderNumber: orderNumber,
-                              pickupTime: selectedTime,
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text('Подтвердить заказ'),
+                      onPressed: _submitting ? null : _confirm,
+                      child: _submitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.background,
+                              ),
+                            )
+                          : const Text('Подтвердить заказ'),
                     ),
                   ),
                 ],
