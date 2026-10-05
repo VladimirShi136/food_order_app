@@ -39,6 +39,7 @@ dependencies:
   provider: ^6.1.2
   pocketbase: ^0.25.2
   shared_preferences: ^2.5.5
+  photo_view: ^0.15.0
 
 dev_dependencies:
   flutter_test:

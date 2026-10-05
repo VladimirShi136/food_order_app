@@ -106,6 +106,9 @@ final ThemeData appTheme = ThemeData(
 class _NoFlashSlideTransitionsBuilder extends PageTransitionsBuilder {
   const _NoFlashSlideTransitionsBuilder();
 
+  // Одна кривая для обоих экранов — иначе один обгоняет другой.
+  static final _curve = CurveTween(curve: Curves.easeInOutCubic);
+
   @override
   Widget buildTransitions<T>(
     PageRoute<T> route,
@@ -114,27 +117,21 @@ class _NoFlashSlideTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final incomingCurve = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-    );
-    final outgoingCurve = CurvedAnimation(
-      parent: secondaryAnimation,
-      curve: Curves.easeInCubic,
-    );
+    // Старый экран: 0 -> -1 (уезжает влево), когда поверх открывается новый
+    final outgoing = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-1, 0),
+    ).chain(_curve).animate(secondaryAnimation);
+
+    // Новый экран: 1 -> 0 (въезжает справа)
+    final incoming = Tween<Offset>(
+      begin: const Offset(1, 0),
+      end: Offset.zero,
+    ).chain(_curve).animate(animation);
 
     return SlideTransition(
-      position: Tween<Offset>(
-        begin: Offset.zero,
-        end: const Offset(-1, 0),
-      ).animate(outgoingCurve),
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(incomingCurve),
-        child: child,
-      ),
+      position: outgoing,
+      child: SlideTransition(position: incoming, child: child),
     );
   }
 }

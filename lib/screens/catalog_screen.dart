@@ -122,7 +122,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     padding: const EdgeInsets.all(16),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) =>
-                        _DishTile(dish: filtered[index]),
+                        DishTile(dish: filtered[index]),
                   ),
           ),
         ),
@@ -131,10 +131,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 }
 
-class _DishTile extends StatelessWidget {
+class DishTile extends StatelessWidget {
   final Dish dish;
 
-  const _DishTile({required this.dish});
+  const DishTile({super.key, required this.dish});
 
   @override
   Widget build(BuildContext context) {
