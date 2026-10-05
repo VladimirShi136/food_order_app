@@ -108,35 +108,40 @@ class ImageViewerScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      // fit: expand — Stack занимает весь экран. Без этого он сжимался до
+      // размера кнопки «закрыть», и картинка рисовалась в её углу.
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Positioned.fill(
-            child: PhotoView(
-              imageProvider: CachedNetworkImageProvider(url),
-              backgroundDecoration: const BoxDecoration(color: Colors.black),
-              // при открытии картинка целиком вписана в экран
-              initialScale: PhotoViewComputedScale.contained,
-              minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.contained * 6,
-              loadingBuilder: (_, __) => const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-              errorBuilder: (_, __, ___) => const Center(
-                child: Icon(
-                  Icons.broken_image,
-                  color: AppColors.textSecondary,
-                  size: 48,
-                ),
+          PhotoView(
+            imageProvider: CachedNetworkImageProvider(url),
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
+            // при открытии картинка целиком вписана в экран
+            initialScale: PhotoViewComputedScale.contained,
+            minScale: PhotoViewComputedScale.contained,
+            maxScale: PhotoViewComputedScale.contained * 6,
+            loadingBuilder: (_, __) => const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+            errorBuilder: (_, __, ___) => const Center(
+              child: Icon(
+                Icons.broken_image,
+                color: AppColors.textSecondary,
+                size: 48,
               ),
             ),
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: IconButton(
-                style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: IconButton(
+                  style: IconButton.styleFrom(backgroundColor: Colors.black54),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
             ),
           ),

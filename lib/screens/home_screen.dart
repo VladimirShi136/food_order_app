@@ -125,6 +125,10 @@ class _NewsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
+        // закреплённая карточка выделена золотой рамкой
+        border: item.pinned
+            ? Border.all(color: AppColors.primary.withValues(alpha: 0.7))
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,6 +154,10 @@ class _NewsCard extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
+              if (item.pinned) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.push_pin, color: AppColors.primary, size: 14),
+              ],
               if (until != null) ...[
                 const Spacer(),
                 Text(
