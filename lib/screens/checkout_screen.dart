@@ -5,6 +5,7 @@ import '../models/auth_model.dart';
 import '../models/cart_model.dart';
 import '../services/order_repository.dart';
 import '../theme/app_theme.dart';
+import '../widgets/loading_indicator.dart';
 import '../widgets/toast_stack.dart';
 import 'login_screen.dart';
 import 'order_success_screen.dart';
@@ -180,7 +181,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(
+                              child: LoadingIndicator(
+                                size: 20,
                                 strokeWidth: 2,
                                 color: AppColors.background,
                               ),

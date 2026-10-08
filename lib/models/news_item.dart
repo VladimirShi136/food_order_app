@@ -46,4 +46,31 @@ class NewsItem {
           .toList(),
     );
   }
+
+  factory NewsItem.fromJson(Map<String, dynamic> json) {
+    final rawDishes = json['dishes'] as List<dynamic>? ?? const [];
+    return NewsItem(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      body: json['body'] as String? ?? '',
+      kind: json['kind'] as String,
+      imageUrl: json['imageUrl'] as String? ?? '',
+      pinned: json['pinned'] as bool? ?? false,
+      expiresAt: DateTime.tryParse(json['expiresAt'] as String? ?? ''),
+      dishes: rawDishes
+          .map((dish) => Dish.fromJson(dish as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'body': body,
+    'kind': kind,
+    'imageUrl': imageUrl,
+    'pinned': pinned,
+    'expiresAt': expiresAt?.toIso8601String(),
+    'dishes': dishes.map((dish) => dish.toJson()).toList(),
+  };
 }

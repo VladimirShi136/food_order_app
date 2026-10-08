@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:food_order_app/screens/splash_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +12,7 @@ import 'widgets/toast_stack.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await initPocketBase();
   runApp(const MyApp());
 }

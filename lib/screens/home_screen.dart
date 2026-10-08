@@ -1,8 +1,15 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../models/news_item.dart';
 import '../services/news_repository.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cached_data_banner.dart';
+import '../widgets/empty_state_view.dart';
+import '../widgets/loading_state_view.dart';
+import '../widgets/offline_state_view.dart';
 import '../widgets/zoomable_image.dart';
 import 'dish_detail_screen.dart';
 import 'promo_dishes_screen.dart';
@@ -14,89 +21,165 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver {
   final _repository = NewsRepository();
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   List<NewsItem>? _items;
+  DateTime? _cacheSavedAt;
+  DateTime? _lastUpdatedAt;
+  bool _cacheIsStale = false;
+  bool _networkUnavailable = false;
   bool _failed = false;
+  bool _loading = false;
+  bool _refreshWhenIdle = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _onConnectivityChanged,
+      onError: (Object error) {
+        debugPrint('Network connectivity monitoring failed: $error');
+      },
+    );
+    _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _networkUnavailable) _load();
+  }
+
+  void _onConnectivityChanged(List<ConnectivityResult> results) {
+    final unavailable = results.contains(ConnectivityResult.none);
+    if (!mounted) return;
+    if (unavailable) {
+      if (_networkUnavailable) return;
+      setState(() {
+        _networkUnavailable = true;
+        _failed = _items == null;
+        _cacheSavedAt ??= _lastUpdatedAt;
+        _cacheIsStale =
+            _lastUpdatedAt != null &&
+            DateTime.now().difference(_lastUpdatedAt!) >
+                const Duration(hours: 3);
+      });
+      return;
+    }
+
+    if (_networkUnavailable) {
+      setState(() => _networkUnavailable = false);
+    }
     _load();
   }
 
   Future<void> _load() async {
+    if (_loading) {
+      _refreshWhenIdle = true;
+      return;
+    }
+    _loading = true;
     try {
-      final items = await _repository.load();
+      final result = await _repository.load();
       if (!mounted) return;
       setState(() {
-        _items = items;
+        _items = result.value;
+        _cacheSavedAt = result.isFromCache ? result.savedAt : null;
+        _lastUpdatedAt = result.savedAt;
+        _cacheIsStale = result.isStale;
+        _networkUnavailable = result.isFromCache;
         _failed = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      debugPrint('News refresh failed and no cached result was returned: $error');
       // если данные уже были, оставляем их на экране
-      setState(() => _failed = _items == null);
+      setState(() {
+        _failed = _items == null;
+        _networkUnavailable = true;
+        _cacheSavedAt ??= _lastUpdatedAt;
+        _cacheIsStale =
+            _lastUpdatedAt != null &&
+            DateTime.now().difference(_lastUpdatedAt!) >
+                const Duration(hours: 3);
+      });
+    } finally {
+      _loading = false;
+      if (_refreshWhenIdle && mounted) {
+        _refreshWhenIdle = false;
+        unawaited(_load());
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_items == null && !_failed) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
-    }
-    if (_failed) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.cloud_off,
-              size: 48,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Не удалось загрузить новости',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(onPressed: _load, child: const Text('Повторить')),
-          ],
-        ),
-      );
-    }
-
-    final items = _items!;
-    return RefreshIndicator(
-      color: AppColors.primary,
-      backgroundColor: AppColors.surface,
-      onRefresh: _load,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-        children: [
-          Text(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Text(
             'Новости и акции',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 12),
-          if (items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 80),
-              child: Center(
-                child: Text(
-                  'Пока новостей нет',
-                  style: TextStyle(color: AppColors.textSecondary),
+        ),
+        Expanded(
+          child: _items == null
+              ? _failed
+                    ? OfflineStateView(
+                        title: 'Не удалось загрузить новости',
+                        message: 'Проверьте подключение к интернету и попробуйте ещё раз.',
+                        onRetry: _load,
+                      )
+                    : const LoadingStateView()
+              : RefreshIndicator(
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.surface,
+                  onRefresh: _load,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
+                    children: [
+                      if (_items!.isEmpty) ...[
+                        if (_networkUnavailable && _cacheSavedAt != null)
+                          CachedDataBanner(
+                            savedAt: _cacheSavedAt!,
+                            isStale: _cacheIsStale,
+                            onRefresh: _load,
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 40),
+                          child: EmptyStateView(
+                            icon: Icons.campaign_outlined,
+                            title: 'Пока новостей нет',
+                            message:
+                                'Скоро появятся свежие акции и обновления.',
+                          ),
+                        ),
+                      ] else ...[
+                        if (_networkUnavailable && _cacheSavedAt != null)
+                          CachedDataBanner(
+                            savedAt: _cacheSavedAt!,
+                            isStale: _cacheIsStale,
+                            onRefresh: _load,
+                          ),
+                        for (final item in _items!) _NewsCard(item: item),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            )
-          else
-            for (final item in items) _NewsCard(item: item),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -8,6 +8,10 @@ import '../models/order.dart';
 import '../services/order_repository.dart';
 import '../services/pocketbase_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/auth_required_view.dart';
+import '../widgets/empty_state_view.dart';
+import '../widgets/loading_state_view.dart';
+import '../widgets/offline_state_view.dart';
 import 'login_screen.dart';
 
 class OrdersScreen extends StatelessWidget {
@@ -41,29 +45,14 @@ class _LoginPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.receipt_long,
-            size: 64,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Войдите, чтобы видеть свои заказы',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-            child: const Text('Войти'),
-          ),
-        ],
-      ),
+    return AuthRequiredView(
+      icon: Icons.receipt_long,
+      title: 'Войдите, чтобы видеть свои заказы',
+      message: 'После входа здесь появится история ваших заказов.',
+      actionLabel: 'Войти',
+      onAction: () =>
+          Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const LoginScreen())),
     );
   }
 }
@@ -126,28 +115,15 @@ class _OrdersListState extends State<_OrdersList> {
   @override
   Widget build(BuildContext context) {
     if (_orders == null && !_failed) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+      return const LoadingStateView();
     }
     if (_failed) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.cloud_off,
-              size: 48,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Не удалось загрузить заказы',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(onPressed: _load, child: const Text('Повторить')),
-          ],
+      return Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: OfflineStateView(
+          title: 'Не удалось загрузить заказы',
+          message: 'Проверьте подключение к интернету и попробуйте ещё раз.',
+          onRetry: _load,
         ),
       );
     }
@@ -159,16 +135,12 @@ class _OrdersListState extends State<_OrdersList> {
       onRefresh: _load,
       child: orders.isEmpty
           ? ListView(
-              children: const [
-                SizedBox(height: 120),
-                Center(
-                  child: Text(
-                    'У вас пока нет заказов',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 16,
-                    ),
-                  ),
+              children: [
+                const SizedBox(height: 80),
+                EmptyStateView(
+                  icon: Icons.receipt_long,
+                  title: 'У вас пока нет заказов',
+                  message: 'Сделайте первый заказ — он появится здесь.',
                 ),
               ],
             )

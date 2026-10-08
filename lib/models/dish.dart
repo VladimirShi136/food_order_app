@@ -39,4 +39,24 @@ class Dish {
       imageUrl: imageUrl,
     );
   }
+
+  factory Dish.fromJson(Map<String, dynamic> json) {
+    return Dish(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String? ?? '',
+      category: json['category'] as String? ?? '',
+      price: (json['price'] as num).toDouble(),
+      imageUrl: json['imageUrl'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'description': description,
+    'category': category,
+    'price': price,
+    'imageUrl': imageUrl,
+  };
 }

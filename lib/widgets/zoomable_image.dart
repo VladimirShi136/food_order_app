@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../theme/app_theme.dart';
+import 'loading_indicator.dart';
 
 /// Картинка на всю ширину карточки с сохранением пропорций (без обрезки).
 /// Слишком высокие картинки ограничиваются по высоте, но показываются целиком.
@@ -121,7 +122,7 @@ class ImageViewerScreen extends StatelessWidget {
             minScale: PhotoViewComputedScale.contained,
             maxScale: PhotoViewComputedScale.contained * 6,
             loadingBuilder: (_, __) => const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+              child: const LoadingIndicator(size: 36),
             ),
             errorBuilder: (_, __, ___) => const Center(
               child: Icon(

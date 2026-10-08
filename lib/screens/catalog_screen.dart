@@ -1,12 +1,20 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:food_order_app/widgets/toast_stack.dart';
 import 'package:provider/provider.dart';
 
 import '../models/cart_model.dart';
 import '../models/dish.dart';
+import '../services/cache_result.dart';
 import '../services/menu_repository.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cached_data_banner.dart';
+import '../widgets/empty_state_view.dart';
+import '../widgets/loading_state_view.dart';
+import '../widgets/offline_state_view.dart';
 import 'dish_detail_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -16,48 +24,153 @@ class CatalogScreen extends StatefulWidget {
   State<CatalogScreen> createState() => _CatalogScreenState();
 }
 
-class _CatalogScreenState extends State<CatalogScreen> {
+class _CatalogScreenState extends State<CatalogScreen>
+    with WidgetsBindingObserver {
   static const _all = 'Все';
 
   final _repository = MenuRepository();
-  late Future<MenuData> _menuFuture;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  late Future<CacheResult<MenuData>> _menuFuture;
   String selectedCategory = _all;
+  bool _networkUnavailable = false;
+  bool _loading = false;
+  bool _refreshWhenIdle = false;
+  DateTime? _lastUpdatedAt;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _onConnectivityChanged,
+      onError: (Object error) {
+        debugPrint('Network connectivity monitoring failed: $error');
+      },
+    );
+    _loading = true;
     _menuFuture = _repository.load();
+    _menuFuture.then(
+      (result) {
+        if (!mounted) return;
+        _lastUpdatedAt = result.savedAt;
+        _networkUnavailable = result.isFromCache;
+        _finishLoading();
+      },
+      onError: (Object error) {
+        debugPrint('Initial menu load failed: $error');
+        _finishLoading();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reload();
+  }
+
+  void _onConnectivityChanged(List<ConnectivityResult> results) {
+    final unavailable = results.contains(ConnectivityResult.none);
+    if (!mounted) return;
+    if (unavailable) {
+      if (_networkUnavailable) return;
+      setState(() => _networkUnavailable = true);
+      return;
+    }
+
+    if (_networkUnavailable) {
+      setState(() => _networkUnavailable = false);
+    }
+    _reload();
   }
 
   Future<void> _reload() async {
+    if (_loading) {
+      _refreshWhenIdle = true;
+      return;
+    }
+    _loading = true;
     final future = _repository.load();
-    setState(() => _menuFuture = future);
+    setState(() {
+      _menuFuture = future;
+    });
     try {
-      await future;
-    } catch (_) {
-      // ошибку покажет FutureBuilder
+      final result = await future;
+      if (!mounted) return;
+      setState(() {
+        _lastUpdatedAt = result.savedAt;
+        _networkUnavailable = result.isFromCache;
+      });
+    } catch (error) {
+      debugPrint('Menu refresh failed: $error');
+      if (!mounted) return;
+      setState(() => _networkUnavailable = true);
+    } finally {
+      _finishLoading();
+    }
+  }
+
+  void _finishLoading() {
+    _loading = false;
+    if (_refreshWhenIdle && mounted) {
+      _refreshWhenIdle = false;
+      unawaited(_reload());
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<MenuData>(
-      future: _menuFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          );
-        }
-        if (snapshot.hasError || !snapshot.hasData) {
-          return _ErrorView(onRetry: _reload);
-        }
-        return _buildMenu(context, snapshot.data!);
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Text('Меню', style: Theme.of(context).textTheme.titleMedium),
+        ),
+        Expanded(
+          child: FutureBuilder<CacheResult<MenuData>>(
+            future: _menuFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const LoadingStateView();
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return OfflineStateView(
+                  title: 'Не удалось загрузить меню',
+                  message:
+                      'Проверьте подключение к интернету и попробуйте ещё раз.',
+                  onRetry: _reload,
+                );
+              }
+              final result = snapshot.data!;
+              return _buildMenu(
+                context,
+                result,
+                isOffline: _networkUnavailable || result.isFromCache,
+                savedAt: result.isFromCache
+                    ? result.savedAt
+                    : (_lastUpdatedAt ?? result.savedAt),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildMenu(BuildContext context, MenuData menu) {
+  Widget _buildMenu(
+    BuildContext context,
+    CacheResult<MenuData> result, {
+    required bool isOffline,
+    required DateTime savedAt,
+  }) {
+    final menu = result.value;
     final categories = [_all, ...menu.categories];
     final filtered = selectedCategory == _all
         ? menu.dishes
@@ -65,14 +178,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Меню', style: Theme.of(context).textTheme.titleMedium),
+        if (isOffline)
+          CachedDataBanner(
+            savedAt: savedAt,
+            isStale:
+                result.isStale ||
+                DateTime.now().difference(savedAt) > const Duration(hours: 24),
+            onRefresh: _reload,
           ),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         SizedBox(
           height: 44,
           child: ListView.separated(
@@ -107,13 +221,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
             onRefresh: _reload,
             child: filtered.isEmpty
                 ? ListView(
-                    children: const [
-                      SizedBox(height: 120),
-                      Center(
-                        child: Text(
-                          'В этой категории пока пусто',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      const SizedBox(height: 80),
+                      EmptyStateView(
+                        icon: Icons.category_outlined,
+                        title: 'В этой категории пока пусто',
+                        message: 'Попробуйте выбрать другую категорию.',
                       ),
                     ],
                   )
@@ -223,44 +337,6 @@ class DishImage extends StatelessWidget {
                 placeholder: (_, __) => placeholder,
                 errorWidget: (_, __, ___) => placeholder,
               ),
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  final VoidCallback onRetry;
-
-  const _ErrorView({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.cloud_off,
-              size: 48,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Не удалось загрузить меню',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Проверьте подключение и попробуйте ещё раз',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: onRetry, child: const Text('Повторить')),
-          ],
-        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/auth_model.dart';
 import '../theme/app_theme.dart';
+import '../widgets/loading_indicator.dart';
 import '../widgets/toast_stack.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -248,7 +249,8 @@ class _AuthFormState extends State<AuthForm> {
                 ? const SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(
+                    child: LoadingIndicator(
+                      size: 20,
                       strokeWidth: 2,
                       color: AppColors.background,
                     ),
