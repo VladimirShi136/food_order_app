@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import '../models/dish.dart';
 import 'cache_result.dart';
 import 'pocketbase_service.dart';
@@ -32,9 +30,12 @@ class MenuRepository {
   final _cache = const PersistentJsonCache();
 
   /// Обновляет меню с сервера, используя сохранённую копию при ошибке связи.
-  Future<CacheResult<MenuData>> load() async {
-    late final MenuData menu;
-    try {
+  Future<CacheResult<MenuData>> load({
+    void Function(CacheResult<MenuData> cached)? onCached,
+  }) => _cache.load<MenuData>(
+    key: _cacheKey,
+    freshness: _freshness,
+    fetch: () async {
       final categoryRecords = await pb
           .collection('categories')
           .getFullList(sort: 'sort_order');
@@ -45,34 +46,15 @@ class MenuRepository {
             filter: 'is_available = true',
             expand: 'category',
           );
-      menu = MenuData(
+      return MenuData(
         categories: categoryRecords
             .map((record) => record.getStringValue('name'))
             .toList(),
         dishes: dishRecords.map(Dish.fromRecord).toList(),
       );
-    } catch (error, stackTrace) {
-      final cached = await _cache.read(_cacheKey);
-      if (cached == null) Error.throwWithStackTrace(error, stackTrace);
-      debugPrint('Menu refresh failed; using cached menu: $error');
-      final menu = MenuData.fromJson(cached.data as Map<String, dynamic>);
-      final age = DateTime.now().difference(cached.savedAt);
-      return CacheResult(
-        value: menu,
-        savedAt: cached.savedAt,
-        isFromCache: true,
-        isStale: age > _freshness,
-      );
-    }
-
-    final savedAt = DateTime.now();
-    final cached = await _cache.write(_cacheKey, menu.toJson());
-    if (!cached) debugPrint('Unable to save the menu cache.');
-    return CacheResult(
-      value: menu,
-      savedAt: savedAt,
-      isFromCache: false,
-      isStale: false,
-    );
-  }
+    },
+    encode: (menu) => menu.toJson(),
+    decode: (data) => MenuData.fromJson(data as Map<String, dynamic>),
+    onCached: onCached,
+  );
 }

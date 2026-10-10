@@ -11,7 +11,7 @@ import '../models/dish.dart';
 import '../services/cache_result.dart';
 import '../services/menu_repository.dart';
 import '../theme/app_theme.dart';
-import '../widgets/cached_data_banner.dart';
+import '../widgets/cached_data_status.dart';
 import '../widgets/empty_state_view.dart';
 import '../widgets/loading_state_view.dart';
 import '../widgets/offline_state_view.dart';
@@ -30,9 +30,11 @@ class _CatalogScreenState extends State<CatalogScreen>
 
   final _repository = MenuRepository();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-  late Future<CacheResult<MenuData>> _menuFuture;
+  CacheResult<MenuData>? _menuResult;
   String selectedCategory = _all;
   bool _networkUnavailable = false;
+  bool _isOffline = false;
+  bool _initialLoadFailed = false;
   bool _loading = false;
   bool _refreshWhenIdle = false;
   DateTime? _lastUpdatedAt;
@@ -47,20 +49,7 @@ class _CatalogScreenState extends State<CatalogScreen>
         debugPrint('Network connectivity monitoring failed: $error');
       },
     );
-    _loading = true;
-    _menuFuture = _repository.load();
-    _menuFuture.then(
-      (result) {
-        if (!mounted) return;
-        _lastUpdatedAt = result.savedAt;
-        _networkUnavailable = result.isFromCache;
-        _finishLoading();
-      },
-      onError: (Object error) {
-        debugPrint('Initial menu load failed: $error');
-        _finishLoading();
-      },
-    );
+    unawaited(_reload());
   }
 
   @override
@@ -79,14 +68,14 @@ class _CatalogScreenState extends State<CatalogScreen>
     final unavailable = results.contains(ConnectivityResult.none);
     if (!mounted) return;
     if (unavailable) {
-      if (_networkUnavailable) return;
-      setState(() => _networkUnavailable = true);
+      setState(() {
+        _isOffline = true;
+        _networkUnavailable = true;
+      });
       return;
     }
 
-    if (_networkUnavailable) {
-      setState(() => _networkUnavailable = false);
-    }
+    setState(() => _isOffline = false);
     _reload();
   }
 
@@ -96,21 +85,32 @@ class _CatalogScreenState extends State<CatalogScreen>
       return;
     }
     _loading = true;
-    final future = _repository.load();
-    setState(() {
-      _menuFuture = future;
-    });
     try {
-      final result = await future;
+      final result = await _repository.load(
+        onCached: (cached) {
+          if (!mounted) return;
+          setState(() {
+            _menuResult = cached;
+            _lastUpdatedAt = cached.savedAt;
+            _initialLoadFailed = false;
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
+        _menuResult = result;
         _lastUpdatedAt = result.savedAt;
         _networkUnavailable = result.isFromCache;
+        _isOffline = result.isOffline;
+        _initialLoadFailed = false;
       });
     } catch (error) {
       debugPrint('Menu refresh failed: $error');
       if (!mounted) return;
-      setState(() => _networkUnavailable = true);
+      setState(() {
+        _networkUnavailable = true;
+        _initialLoadFailed = _menuResult == null;
+      });
     } finally {
       _finishLoading();
     }
@@ -134,42 +134,21 @@ class _CatalogScreenState extends State<CatalogScreen>
           child: Text('Меню', style: Theme.of(context).textTheme.titleMedium),
         ),
         Expanded(
-          child: FutureBuilder<CacheResult<MenuData>>(
-            future: _menuFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const LoadingStateView();
-              }
-              if (snapshot.hasError || !snapshot.hasData) {
-                return OfflineStateView(
-                  title: 'Не удалось загрузить меню',
-                  message:
-                      'Проверьте подключение к интернету и попробуйте ещё раз.',
-                  onRetry: _reload,
-                );
-              }
-              final result = snapshot.data!;
-              return _buildMenu(
-                context,
-                result,
-                isOffline: _networkUnavailable || result.isFromCache,
-                savedAt: result.isFromCache
-                    ? result.savedAt
-                    : (_lastUpdatedAt ?? result.savedAt),
-              );
-            },
-          ),
+          child: _menuResult == null
+              ? _initialLoadFailed
+                    ? OfflineStateView(
+                        title: 'Не удалось загрузить меню',
+                        message: 'Проверьте подключение к интернету и попробуйте ещё раз.',
+                        onRetry: _reload,
+                      )
+                    : const LoadingStateView()
+              : _buildMenu(context, _menuResult!),
         ),
       ],
     );
   }
 
-  Widget _buildMenu(
-    BuildContext context,
-    CacheResult<MenuData> result, {
-    required bool isOffline,
-    required DateTime savedAt,
-  }) {
+  Widget _buildMenu(BuildContext context, CacheResult<MenuData> result) {
     final menu = result.value;
     final categories = [_all, ...menu.categories];
     final filtered = selectedCategory == _all
@@ -178,12 +157,17 @@ class _CatalogScreenState extends State<CatalogScreen>
 
     return Column(
       children: [
-        if (isOffline)
-          CachedDataBanner(
-            savedAt: savedAt,
+        if (_networkUnavailable)
+          CachedDataStatus(
+            isOffline: _isOffline,
             isStale:
                 result.isStale ||
-                DateTime.now().difference(savedAt) > const Duration(hours: 24),
+                DateTime.now().difference(
+                      result.isFromCache
+                          ? result.savedAt
+                          : (_lastUpdatedAt ?? result.savedAt),
+                    ) >
+                    const Duration(hours: 24),
             onRefresh: _reload,
           ),
         const SizedBox(height: 4),
@@ -193,7 +177,7 @@ class _CatalogScreenState extends State<CatalogScreen>
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final cat = categories[index];
               final isSelected = cat == selectedCategory;
@@ -334,8 +318,8 @@ class DishImage extends StatelessWidget {
             : CachedNetworkImage(
                 imageUrl: url,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => placeholder,
-                errorWidget: (_, __, ___) => placeholder,
+                placeholder: (_, _) => placeholder,
+                errorWidget: (_, _, _) => placeholder,
               ),
       ),
     );

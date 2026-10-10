@@ -73,3 +73,36 @@ onRecordCreateRequest((e) => {
   order.set("total_price", total)
   e.app.save(order)
 }, "order_items")
+
+// Сотрудники могут менять только статус заказа и только по рабочим этапам.
+onRecordUpdateRequest((e) => {
+  if (e.hasSuperuserAuth()) {
+    return e.next()
+  }
+
+  if (!e.auth || e.auth.collection().name != "staff") {
+    throw new ForbiddenError("Нет доступа к изменению заказа")
+  }
+
+  const body = e.requestInfo().body
+  if (Object.keys(body).some((field) => field != "status")) {
+    throw new ForbiddenError("Сотрудник может менять только статус заказа")
+  }
+
+  const transitions = {
+    new: ["accepted", "cancelled"],
+    accepted: ["cooking", "cancelled"],
+    cooking: ["ready"],
+    ready: ["completed"],
+    completed: [],
+    cancelled: [],
+  }
+  const currentStatus = e.record.original().getString("status")
+  const nextStatus = e.record.getString("status")
+
+  if (!(transitions[currentStatus] || []).includes(nextStatus)) {
+    throw new BadRequestError("Недопустимый переход статуса заказа")
+  }
+
+  e.next()
+}, "orders")

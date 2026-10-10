@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/news_item.dart';
 import '../services/news_repository.dart';
 import '../theme/app_theme.dart';
-import '../widgets/cached_data_banner.dart';
+import '../widgets/cached_data_status.dart';
 import '../widgets/empty_state_view.dart';
 import '../widgets/loading_state_view.dart';
 import '../widgets/offline_state_view.dart';
@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen>
   DateTime? _lastUpdatedAt;
   bool _cacheIsStale = false;
   bool _networkUnavailable = false;
+  bool _isOffline = false;
   bool _failed = false;
   bool _loading = false;
   bool _refreshWhenIdle = false;
@@ -63,8 +64,8 @@ class _HomeScreenState extends State<HomeScreen>
     final unavailable = results.contains(ConnectivityResult.none);
     if (!mounted) return;
     if (unavailable) {
-      if (_networkUnavailable) return;
       setState(() {
+        _isOffline = true;
         _networkUnavailable = true;
         _failed = _items == null;
         _cacheSavedAt ??= _lastUpdatedAt;
@@ -76,9 +77,7 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    if (_networkUnavailable) {
-      setState(() => _networkUnavailable = false);
-    }
+    setState(() => _isOffline = false);
     _load();
   }
 
@@ -89,7 +88,18 @@ class _HomeScreenState extends State<HomeScreen>
     }
     _loading = true;
     try {
-      final result = await _repository.load();
+      final result = await _repository.load(
+        onCached: (cached) {
+          if (!mounted) return;
+          setState(() {
+            _items = cached.value;
+            _cacheSavedAt = cached.savedAt;
+            _lastUpdatedAt = cached.savedAt;
+            _cacheIsStale = cached.isStale;
+            _failed = false;
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
         _items = result.value;
@@ -97,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen>
         _lastUpdatedAt = result.savedAt;
         _cacheIsStale = result.isStale;
         _networkUnavailable = result.isFromCache;
+        _isOffline = result.isOffline;
         _failed = false;
       });
     } catch (error) {
@@ -133,6 +144,12 @@ class _HomeScreenState extends State<HomeScreen>
             style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
+        if (_networkUnavailable && _cacheSavedAt != null)
+          CachedDataStatus(
+            isOffline: _isOffline,
+            isStale: _cacheIsStale,
+            onRefresh: _load,
+          ),
         Expanded(
           child: _items == null
               ? _failed
@@ -151,12 +168,6 @@ class _HomeScreenState extends State<HomeScreen>
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                     children: [
                       if (_items!.isEmpty) ...[
-                        if (_networkUnavailable && _cacheSavedAt != null)
-                          CachedDataBanner(
-                            savedAt: _cacheSavedAt!,
-                            isStale: _cacheIsStale,
-                            onRefresh: _load,
-                          ),
                         Padding(
                           padding: const EdgeInsets.only(top: 40),
                           child: EmptyStateView(
@@ -167,12 +178,6 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                       ] else ...[
-                        if (_networkUnavailable && _cacheSavedAt != null)
-                          CachedDataBanner(
-                            savedAt: _cacheSavedAt!,
-                            isStale: _cacheIsStale,
-                            onRefresh: _load,
-                          ),
                         for (final item in _items!) _NewsCard(item: item),
                       ],
                     ],
